@@ -1,0 +1,228 @@
+<link rel=stylesheet href=./node_modules/highlight-syntax/dark.css/>
+<style>
+  code {background-color:#202020;color:white;}
+  pre {background-color:#202020;color:white;}
+  body { margin-left: auto; margin-right: auto; width: 600px;}
+</style>
+<link rel=stylesheet href=./cursor.css/>
+<style>
+</style>
+<script src=./bundle.js></script>
+<body>
+<p>Push Streams</p>
+<p>@dominictarr</p>
+<hr>
+<ul>
+<li>@dominictarr (github/twitter)</li>
+<li></li>
+</ul>
+<hr>
+<p>&quot;Streams are node&#39;s best and most misunderstood idea&quot;</p>
+<ul>
+<li>dominictarr (2011, from event-stream readme, still true)</li>
+</ul>
+<hr>
+<p>what is a stream?</p>
+<p>Array but in time not space
+source -&gt; through... -&gt; sink
+back pressure: the source slows down if the sink does</p>
+<hr>
+<p>error handling, eg: downloading a file</p>
+<ul>
+<li>source fails (wifi drops)</li>
+<li>through fails (invalid format, parsing error)</li>
+<li>sink fails (disk is full)</li>
+</ul>
+<hr>
+<p>node streams</p>
+<ul>
+<li><a href="https://github.com/nodejs/node/blob/master/lib/events.js">events.js</a></li>
+<li><a href="https://github.com/nodejs/node/blob/master/lib/_stream_readable.js">_stream_readable.js</a></li>
+<li><a href="https://github.com/nodejs/node/blob/master/lib/_stream_writable.js">_stream_writable.js</a></li>
+<li>...</li>
+</ul>
+<hr>
+<h1 id="other-problems">other problems</h1>
+<ul>
+<li>no error propogation</li>
+<li>back pressure is delayed</li>
+<li>...all streams must buffer</li>
+</ul>
+<hr>
+<h1 id="early-alternatives">early alternatives</h1>
+<ul>
+<li><a href="https://github.com/gozala/reducers">gozala/reducers</a> (2012)</li>
+<li><a href="https://github.com/dominictarr/strm">dominictarr/strm</a> (2013)</li>
+</ul>
+<hr>
+<h1 id="pull-streams-2013"><a href="https://github.com/pull-stream/pull-stream">pull-streams</a> (2013)</h1>
+<ul>
+<li>secure-scuttlebutt</li>
+<li>ipfs</li>
+<li>js-git (min-streams, by @creationix)</li>
+</ul>
+<hr>
+<h1 id="problems">problems</h1>
+<ul>
+<li>stackoverflow if source is sync (fixed, but ugly)</li>
+<li>aborting live stream (fixed)</li>
+<li>memory use of closures</li>
+<li>abort stalled sink</li>
+<li>difficult to port to other languages</li>
+</ul>
+<hr>
+<h2 id="push-streams">push-streams</h2>
+<ul>
+<li>uses iteration, faster/lighter than recursion</li>
+<li>OO style, more optimized</li>
+<li>stream can end / abort any time.</li>
+<li>easy to implement in any OO language</li>
+</ul>
+<hr>
+<h2 id="collect-sink">collect (sink)</h2>
+<pre><code class="language-js">function collect(cb) {
+  var ary = []
+  return {
+    write: ary.push.bind(ary),
+    paused: false,
+    end: function (err) {
+      this.ended = err || true
+      cb(err, ary)
+    }
+  }
+}</code></pre>
+<hr>
+<h2 id="values-source">values (source)</h2>
+<pre><code class="language-js">function values (ary) {
+  var i = 0
+  return {
+    resume: function () {
+      //just loop until the sink pauses or we have ended
+      while(!this.sink.paused &amp;&amp; !this.ended)
+        if(this.ended = i &gt;= ary.length) this.sink.end()
+        else                             this.sink.write(ary[i++])
+    },
+    sink: null,
+    pipe: pipe
+  }
+}</code></pre>
+<hr>
+<h2 id="pipe">pipe</h2>
+<pre><code class="language-js">function pipe(sink) {
+  this.sink = sink
+  sink.source = this
+  if(!sink.paused) this.resume()
+  return sink
+}</code></pre>
+<hr>
+<h2 id="a-simple-pipeline">a simple pipeline</h2>
+<pre><code>var source = values([1,2,3])
+var sink = collect(function (err, ary) { console.log(ary) })
+
+source.pipe(sink)</code></pre><hr>
+<h2 id="map-stream">map stream</h2>
+<pre><code class="language-js">function map(fn) {
+  return {
+    write: function (data) {
+      //we trust the source not to call us if we are paused
+      //so we don&#39;t need to buffer this.
+      this.sink.write(fn(data))
+      this.paused = this.sink.paused //update our pause state if it changed
+    },
+    end: function (err) {
+      this.ended = true
+      this.sink.end(err)
+    },
+    //a map needs to start off paused
+    paused: true,
+    //the sink will call resume when it unpauses.
+    resume: function () {
+      if(!(this.paused = this.sink.paused))
+        this.source.resume()
+    },
+    pipe: pipe,
+    source: null, sink: null
+  }
+}</code></pre>
+<hr>
+<h2 id="piped">piped</h2>
+<pre><code>var source = values([1,2,3])
+var sink = collect(function (err, ary) { console.log(ary) })
+var through = map(function (e) { return 10 * e })
+source.pipe(through).pipe(sink)</code></pre><hr>
+<h2 id="async-map">async map</h2>
+<pre><code class="language-js">function asyncMap (asyncFn) {
+  var _map = map()
+  _map.write = function (data) {
+    //we trust the source not to call us if we are paused
+    //so we don&#39;t need to buffer this.
+    var self = this
+    self.paused = true
+    asyncFn(data, function (err, mapped_data) {
+      self.paused = false
+      if(err) self.sink.end(this.ended = err)
+      else {
+        self.sink.write(mapped_data)
+        self.resume()
+      }
+    })
+  }
+  return _map
+}</code></pre>
+<hr>
+<h2 id="back-pressure">Back Pressure</h2>
+<ul>
+<li>sink has <code>paused</code> property.</li>
+<li>source checks <code>this.sink.paused</code> before writing</li>
+<li>through sets <code>this.paused = this.sink.paused</code> after writing</li>
+</ul>
+<hr>
+<h2 id="error-handling">Error Handling</h2>
+<pre><code class="language-js">function values (ary) {
+  var i = 0
+  return {
+    ...
+    abort: function (err) {
+      this.ended = true
+      this.sink.end(err)
+    }
+  }
+}</code></pre>
+<pre><code class="language-js">function map(fn) {
+  return {
+    ...
+    abort: function (err) {
+      this.source.abort(err)
+    }
+  }
+}</code></pre>
+<hr>
+<h2 id="benchmarks">benchmarks</h2>
+<pre><code class="language-js">&gt; node pull-stream/benchmarks/node.js
+pull3*100000: 4470.156ms
+&gt; node pull-stream/benchmarks/pull.js
+pull3*100000: 640.037ms
+&gt; node push-stream/benchmarks/push.js
+pull3*100000: 226.907ms</code></pre>
+<hr>
+<h2 id="fixing-node">fixing node</h2>
+<ul>
+<li>Q: shall we replace node streams? A: no.</li>
+</ul>
+<hr>
+<h1 id="npm-better-than-core">npm better than core</h1>
+<ul>
+<li>just rewrite core modules and install via npm</li>
+<li>then you have versions for core modules</li>
+</ul>
+<hr>
+<ul>
+<li>why use &gt; 1000 loc when you can use &lt; 100 ?</li>
+<li>less code means less bugs</li>
+<li>probably faster</li>
+<li>more readable</li>
+</ul>
+<hr>
+<p><img src="./meme.png" alt="meme.jpg"></p>
+
+</body>

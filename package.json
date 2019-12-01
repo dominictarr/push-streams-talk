@@ -1,0 +1,21 @@
+{
+  "name": "push-streams-talk",
+  "description": "",
+  "version": "1.0.0",
+  "homepage": "https://github.com/dominictarr/push-streams-talk",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/dominictarr/push-streams-talk.git"
+  },
+  "dependencies": {
+    "highlight-syntax": "^3.0.2",
+    "highlight.js": "^9.16.2",
+    "indexhtmlify": "^2.0.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "tape test/*.js"
+  },
+  "author": "Dominic Tarr @EMovhfIrFk4NihAKnRNhrfRaqIhBv1Wj8pTxJNgvCCY=.ed25519",
+  "license": "MIT"
+}
