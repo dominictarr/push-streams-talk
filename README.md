@@ -2,16 +2,19 @@
 
 Push Streams
 
-@dominictarr
+---
+
+# @dominictarr (github/twitter)
+
+* wrote some modules
+* security auditing: leastauthority.com
+* ssb: @EMovhfIrFk4NihAKnRNhrfRaqIhBv1Wj8pTxJNgvCCY=.ed25519
+* live on sailboat in New Zealand
 
 ---
 
-* @dominictarr (github/twitter)
-* 
 
----
-
-"Streams are node's best and most misunderstood idea"
+# "Streams are node's best and most misunderstood idea"
 
 - dominictarr (2011, from event-stream readme, still true)
 
@@ -19,9 +22,13 @@ Push Streams
 
 what is a stream?
 
-Array but in time not space
-source -> through... -> sink
-back pressure: the source slows down if the sink does
+* Array but in time not space
+
+* source -> through... -> sink
+
+* back pressure: the source slows down if the sink does
+
+* error handling, hopefully
 
 ---
 
@@ -44,9 +51,9 @@ node streams
 
 # other problems
 
-* no error propogation
 * back pressure is delayed
 * ...all streams must buffer
+* no error propogation
 
 ---
 
@@ -284,4 +291,4 @@ pull3*100000: 226.907ms
 
 ---
 
-![meme.jpg](./meme.png)
+![meme.png](./meme.png)
